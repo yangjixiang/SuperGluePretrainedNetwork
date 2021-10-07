@@ -58,97 +58,75 @@ torch.set_grad_enabled(False)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='SuperGlue demo',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument(
-        '--input', type=str, default='0',
-        help='ID of a USB webcam, URL of an IP camera, '
-             'or path to an image directory or movie file')
-    parser.add_argument(
-        '--output_dir', type=str, default=None,
-        help='Directory where to write output frames (If None, no output)')
+    '''
+    The code parameters
+    
+    'input':               ID of a USB webcam, URL of an IP camera, or path to an image directory or movie file
+    '--output_dir':        Directory where to write output frames (If None, no output)
+    'image_glob':          Glob if a directory of images is specified
+    'skip':                Images to skip if input is a movie or directory
+    'max_length':          Maximum length if input is a movie or directory
+    'resize':              Resize the input image before running inference. If two numbers, 
+                           resize to the exact dimensions, if one number, resize the max dimension, if -1, do not resize
+    'superglue':           SuperGlue weights
+    'max_keypoints':       Maximum number of keypoints detected by Superpoint (\'-1\' keeps all keypoints)
+    'keypoint_threshold':  SuperPoint keypoint detector confidence threshold
+    'nms_radius':          SuperPoint Non Maximum Suppression (NMS) radius (Must be positive)
+    'sinkhorn_iterations': Number of Sinkhorn iterations performed by SuperGlue
+    'match_threshold':     SuperGlue match threshold
+    'show_keypoints':      Show the detected keypoints
+    'no_display':          Do not display images to screen. Useful if running remotely
+    'force_cpu':           Force pytorch to run in CPU mode.
+    '''
 
-    parser.add_argument(
-        '--image_glob', type=str, nargs='+', default=['*.png', '*.jpg', '*.jpeg'],
-        help='Glob if a directory of images is specified')
-    parser.add_argument(
-        '--skip', type=int, default=1,
-        help='Images to skip if input is a movie or directory')
-    parser.add_argument(
-        '--max_length', type=int, default=1000000,
-        help='Maximum length if input is a movie or directory')
-    parser.add_argument(
-        '--resize', type=int, nargs='+', default=[640, 480],
-        help='Resize the input image before running inference. If two numbers, '
-             'resize to the exact dimensions, if one number, resize the max '
-             'dimension, if -1, do not resize')
+    opt = {'input': 'assets/freiburg_sequence/',
+           'output_dir': 'dump_demo_sequence',
+           'image_glob': ['*.png', '*.jpg', '*.jpeg'],
+           'skip': 1,
+           'max_length': 1000000,
+           'resize': [640, 480],
+           'superglue': 'indoor',  # can be choose 'indoor', 'outdoor'
+           'max_keypoints': -1,
+           'keypoint_threshold': 0.005,
+           'nms_radius': 4,
+           'sinkhorn_iterations': 20,
+           'match_threshold': 0.2,
+           'show_keypoints': True,
+           'no_display': True,
+           'force_cpu': False
+           }
 
-    parser.add_argument(
-        '--superglue', choices={'indoor', 'outdoor'}, default='indoor',
-        help='SuperGlue weights')
-    parser.add_argument(
-        '--max_keypoints', type=int, default=-1,
-        help='Maximum number of keypoints detected by Superpoint'
-             ' (\'-1\' keeps all keypoints)')
-    parser.add_argument(
-        '--keypoint_threshold', type=float, default=0.005,
-        help='SuperPoint keypoint detector confidence threshold')
-    parser.add_argument(
-        '--nms_radius', type=int, default=4,
-        help='SuperPoint Non Maximum Suppression (NMS) radius'
-        ' (Must be positive)')
-    parser.add_argument(
-        '--sinkhorn_iterations', type=int, default=20,
-        help='Number of Sinkhorn iterations performed by SuperGlue')
-    parser.add_argument(
-        '--match_threshold', type=float, default=0.2,
-        help='SuperGlue match threshold')
-
-    parser.add_argument(
-        '--show_keypoints', action='store_true',
-        help='Show the detected keypoints')
-    parser.add_argument(
-        '--no_display', action='store_true',
-        help='Do not display images to screen. Useful if running remotely')
-    parser.add_argument(
-        '--force_cpu', action='store_true',
-        help='Force pytorch to run in CPU mode.')
-
-    opt = parser.parse_args()
-    print(opt)
-
-    if len(opt.resize) == 2 and opt.resize[1] == -1:
+    if len(opt['resize']) == 2 and opt['resize'][1] == -1:
         opt.resize = opt.resize[0:1]
-    if len(opt.resize) == 2:
+    if len(opt['resize']) == 2:
         print('Will resize to {}x{} (WxH)'.format(
-            opt.resize[0], opt.resize[1]))
-    elif len(opt.resize) == 1 and opt.resize[0] > 0:
-        print('Will resize max dimension to {}'.format(opt.resize[0]))
-    elif len(opt.resize) == 1:
+            opt['resize'][0], opt['resize'][1]))
+    elif len(opt['resize']) == 1 and opt['resize'][0] > 0:
+        print('Will resize max dimension to {}'.format(opt['resize'][0]))
+    elif len(opt['resize']) == 1:
         print('Will not resize images')
     else:
         raise ValueError('Cannot specify more than two integers for --resize')
 
-    device = 'cuda' if torch.cuda.is_available() and not opt.force_cpu else 'cpu'
+    device = 'cuda' if torch.cuda.is_available() and not opt['force_cpu'] else 'cpu'
     print('Running inference on device \"{}\"'.format(device))
     config = {
         'superpoint': {
-            'nms_radius': opt.nms_radius,
-            'keypoint_threshold': opt.keypoint_threshold,
-            'max_keypoints': opt.max_keypoints
+            'nms_radius': opt['nms_radius'],
+            'keypoint_threshold': opt['keypoint_threshold'],
+            'max_keypoints': opt['max_keypoints']
         },
         'superglue': {
-            'weights': opt.superglue,
-            'sinkhorn_iterations': opt.sinkhorn_iterations,
-            'match_threshold': opt.match_threshold,
+            'weights': opt['superglue'],
+            'sinkhorn_iterations': opt['sinkhorn_iterations'],
+            'match_threshold': opt['match_threshold'],
         }
     }
     matching = Matching(config).eval().to(device)
     keys = ['keypoints', 'scores', 'descriptors']
 
-    vs = VideoStreamer(opt.input, opt.resize, opt.skip,
-                       opt.image_glob, opt.max_length)
+    vs = VideoStreamer(opt['input'], opt['resize'], opt['skip'],
+                       opt['image_glob'], opt['max_length'])
     frame, ret = vs.next_frame()
     assert ret, 'Error when reading the first frame (try different --input?)'
 
@@ -159,12 +137,12 @@ if __name__ == '__main__':
     last_frame = frame
     last_image_id = 0
 
-    if opt.output_dir is not None:
-        print('==> Will write outputs to {}'.format(opt.output_dir))
-        Path(opt.output_dir).mkdir(exist_ok=True)
+    if opt['output_dir'] is not None:
+        print('==> Will write outputs to {}'.format(opt['output_dir']))
+        Path(opt['output_dir']).mkdir(exist_ok=True)
 
     # Create a window to display the demo.
-    if not opt.no_display:
+    if not opt['no_display']:
         cv2.namedWindow('SuperGlue matches', cv2.WINDOW_NORMAL)
         cv2.resizeWindow('SuperGlue matches', (640*2, 480))
     else:
@@ -214,9 +192,9 @@ if __name__ == '__main__':
         ]
         out = make_matching_plot_fast(
             last_frame, frame, kpts0, kpts1, mkpts0, mkpts1, color, text,
-            path=None, show_keypoints=opt.show_keypoints, small_text=small_text)
+            path=None, show_keypoints=opt['show_keypoints'], small_text=small_text)
 
-        if not opt.no_display:
+        if not opt['no_display']:
             cv2.imshow('SuperGlue matches', out)
             key = chr(cv2.waitKey(1) & 0xFF)
             if key == 'q':
@@ -243,15 +221,15 @@ if __name__ == '__main__':
                 print('\nChanged the match threshold to {:.2f}'.format(
                     matching.superglue.config['match_threshold']))
             elif key == 'k':
-                opt.show_keypoints = not opt.show_keypoints
+                opt['show_keypoints'] = not opt['show_keypoints']
 
         timer.update('viz')
         timer.print()
 
-        if opt.output_dir is not None:
-            #stem = 'matches_{:06}_{:06}'.format(last_image_id, vs.i-1)
+        if opt['output_dir'] is not None:
+            # stem = 'matches_{:06}_{:06}'.format(last_image_id, vs.i-1)
             stem = 'matches_{:06}_{:06}'.format(stem0, stem1)
-            out_file = str(Path(opt.output_dir, stem + '.png'))
+            out_file = str(Path(opt['output_dir'], stem + '.png'))
             print('\nWriting image to {}'.format(out_file))
             cv2.imwrite(out_file, out)
 
