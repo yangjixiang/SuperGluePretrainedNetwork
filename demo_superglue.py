@@ -51,56 +51,17 @@ import matplotlib.cm as cm
 import torch
 
 from models.matching import Matching
-from models.utils import (AverageTimer, VideoStreamer,
-                          make_matching_plot_fast, frame2tensor)
+from models.utils import (AverageTimer, VideoStreamer, make_matching_plot_fast, frame2tensor)
 
 torch.set_grad_enabled(False)
 
 
-if __name__ == '__main__':
-    '''
-    The code parameters
-    
-    'input':               ID of a USB webcam, URL of an IP camera, or path to an image directory or movie file
-    '--output_dir':        Directory where to write output frames (If None, no output)
-    'image_glob':          Glob if a directory of images is specified
-    'skip':                Images to skip if input is a movie or directory
-    'max_length':          Maximum length if input is a movie or directory
-    'resize':              Resize the input image before running inference. If two numbers, 
-                           resize to the exact dimensions, if one number, resize the max dimension, if -1, do not resize
-    'superglue':           SuperGlue weights
-    'max_keypoints':       Maximum number of keypoints detected by Superpoint (\'-1\' keeps all keypoints)
-    'keypoint_threshold':  SuperPoint keypoint detector confidence threshold
-    'nms_radius':          SuperPoint Non Maximum Suppression (NMS) radius (Must be positive)
-    'sinkhorn_iterations': Number of Sinkhorn iterations performed by SuperGlue
-    'match_threshold':     SuperGlue match threshold
-    'show_keypoints':      Show the detected keypoints
-    'no_display':          Do not display images to screen. Useful if running remotely
-    'force_cpu':           Force pytorch to run in CPU mode.
-    '''
-
-    opt = {'input': 'assets/freiburg_sequence/',
-           'output_dir': 'dump_demo_sequence',
-           'image_glob': ['*.png', '*.jpg', '*.jpeg'],
-           'skip': 1,
-           'max_length': 1000000,
-           'resize': [640, 480],
-           'superglue': 'indoor',  # can be choose 'indoor', 'outdoor'
-           'max_keypoints': -1,
-           'keypoint_threshold': 0.005,
-           'nms_radius': 4,
-           'sinkhorn_iterations': 20,
-           'match_threshold': 0.2,
-           'show_keypoints': True,
-           'no_display': True,
-           'force_cpu': False
-           }
-
+def main(opt):
     if len(opt['resize']) == 2 and opt['resize'][1] == -1:
         opt.resize = opt.resize[0:1]
+
     if len(opt['resize']) == 2:
-        print('Will resize to {}x{} (WxH)'.format(
-            opt['resize'][0], opt['resize'][1]))
+        print('Will resize to {}x{} (WxH)'.format(opt['resize'][0], opt['resize'][1]))
     elif len(opt['resize']) == 1 and opt['resize'][0] > 0:
         print('Will resize max dimension to {}'.format(opt['resize'][0]))
     elif len(opt['resize']) == 1:
@@ -110,6 +71,7 @@ if __name__ == '__main__':
 
     device = 'cuda' if torch.cuda.is_available() and not opt['force_cpu'] else 'cpu'
     print('Running inference on device \"{}\"'.format(device))
+
     config = {
         'superpoint': {
             'nms_radius': opt['nms_radius'],
@@ -125,14 +87,14 @@ if __name__ == '__main__':
     matching = Matching(config).eval().to(device)
     keys = ['keypoints', 'scores', 'descriptors']
 
-    vs = VideoStreamer(opt['input'], opt['resize'], opt['skip'],
-                       opt['image_glob'], opt['max_length'])
+    vs = VideoStreamer(opt['input'], opt['resize'], opt['skip'], opt['image_glob'], opt['max_length'])
     frame, ret = vs.next_frame()
     assert ret, 'Error when reading the first frame (try different --input?)'
 
     frame_tensor = frame2tensor(frame, device)
     last_data = matching.superpoint({'image': frame_tensor})
-    last_data = {k+'0': last_data[k] for k in keys}
+
+    last_data = {k + '0': last_data[k] for k in keys}
     last_data['image0'] = frame_tensor
     last_frame = frame
     last_image_id = 0
@@ -144,7 +106,7 @@ if __name__ == '__main__':
     # Create a window to display the demo.
     if not opt['no_display']:
         cv2.namedWindow('SuperGlue matches', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('SuperGlue matches', (640*2, 480))
+        cv2.resizeWindow('SuperGlue matches', (640 * 2, 480))
     else:
         print('Skipping visualization, will not show a GUI.')
 
@@ -202,7 +164,7 @@ if __name__ == '__main__':
                 print('Exiting (via q) demo_superglue.py')
                 break
             elif key == 'n':  # set the current frame as anchor
-                last_data = {k+'0': pred[k+'1'] for k in keys}
+                last_data = {k + '0': pred[k + '1'] for k in keys}
                 last_data['image0'] = frame_tensor
                 last_frame = frame
                 last_image_id = (vs.i - 1)
@@ -210,14 +172,14 @@ if __name__ == '__main__':
                 # Increase/decrease keypoint threshold by 10% each keypress.
                 d = 0.1 * (-1 if key == 'e' else 1)
                 matching.superpoint.config['keypoint_threshold'] = min(max(
-                    0.0001, matching.superpoint.config['keypoint_threshold']*(1+d)), 1)
+                    0.0001, matching.superpoint.config['keypoint_threshold'] * (1 + d)), 1)
                 print('\nChanged the keypoint threshold to {:.4f}'.format(
                     matching.superpoint.config['keypoint_threshold']))
             elif key in ['d', 'f']:
                 # Increase/decrease match threshold by 0.05 each keypress.
                 d = 0.05 * (-1 if key == 'd' else 1)
                 matching.superglue.config['match_threshold'] = min(max(
-                    0.05, matching.superglue.config['match_threshold']+d), .95)
+                    0.05, matching.superglue.config['match_threshold'] + d), .95)
                 print('\nChanged the match threshold to {:.2f}'.format(
                     matching.superglue.config['match_threshold']))
             elif key == 'k':
@@ -235,3 +197,45 @@ if __name__ == '__main__':
 
     cv2.destroyAllWindows()
     vs.cleanup()
+
+
+if __name__ == '__main__':
+    '''
+    The code parameters
+    
+    'input':               ID of a USB webcam, URL of an IP camera, or path to an image directory or movie file
+    '--output_dir':        Directory where to write output frames (If None, no output)
+    'image_glob':          Glob if a directory of images is specified
+    'skip':                Images to skip if input is a movie or directory
+    'max_length':          Maximum length if input is a movie or directory
+    'resize':              Resize the input image before running inference. If two numbers, resize to the exact
+                           dimensions, if one number, resize the max dimension, if -1, do not resize
+    'superglue':           SuperGlue weights
+    'max_keypoints':       Maximum number of keypoints detected by Superpoint (\'-1\' keeps all keypoints)
+    'keypoint_threshold':  SuperPoint keypoint detector confidence threshold
+    'nms_radius':          SuperPoint Non Maximum Suppression (NMS) radius (Must be positive)
+    'sinkhorn_iterations': Number of Sinkhorn iterations performed by SuperGlue
+    'match_threshold':     SuperGlue match threshold
+    'show_keypoints':      Show the detected keypoints
+    'no_display':          Do not display images to screen. Useful if running remotely
+    'force_cpu':           Force pytorch to run in CPU mode.
+    '''
+
+    option = {'input': 'assets/IMD/',
+              'output_dir': 'dump_demo_sequence',
+              'image_glob': ['*.png', '*.jpg', '*.jpeg'],
+              'skip': 1,
+              'max_length': 1000000,
+              'resize': [640, 480],
+              'superglue': 'indoor',  # can be choose 'indoor', 'outdoor'
+              'max_keypoints': -1,
+              'keypoint_threshold': 0.005,
+              'nms_radius': 4,
+              'sinkhorn_iterations': 20,
+              'match_threshold': 0.2,
+              'show_keypoints': True,
+              'no_display': True,
+              'force_cpu': False
+              }
+
+    main(option)

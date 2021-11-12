@@ -184,7 +184,7 @@ class VideoStreamer:
         if self.camera:
 
             if self._ip_camera:
-                #Wait for first image, making sure we haven't exited
+                # Wait for first image, making sure we haven't exited
                 while self._ip_grabbed is False and self._ip_exited is False:
                     time.sleep(.001)
 
@@ -195,7 +195,7 @@ class VideoStreamer:
                 ret, image = self.cap.read()
             if ret is False:
                 print('VideoStreamer: Cannot get image from camera')
-                return (None, False)
+                return None, False
             w, h = image.shape[1], image.shape[0]
             if self.video_file:
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, self.listing[self.i])
@@ -208,7 +208,7 @@ class VideoStreamer:
             image_file = str(self.listing[self.i])
             image = self.load_image(image_file)
         self.i = self.i + 1
-        return (image, True)
+        return image, True
 
     def start_ip_camera_thread(self):
         self._ip_thread = Thread(target=self.update_ip_camera, args=())
